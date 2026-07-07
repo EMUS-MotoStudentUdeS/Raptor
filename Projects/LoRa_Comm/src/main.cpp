@@ -1,19 +1,62 @@
 #include <Arduino.h>
 #include <RadioLib.h>
 #include <SSD1306Wire.h>
-#include "capteurs.h"
+//#include "capteurs.h"
 
 // Pins SX1262 du Heltec V4
 SX1262 radio = new Module(8, 14, 12, 13);
 SSD1306Wire display(0x3c, 17, 18);
 
 int compteur = 0;
-bool canOK = false;
+//bool canOK = false;
 
 unsigned long dernierEnvoi = 0;
 unsigned long dernierDiag  = 0;
 
+
+
+//===============================================================================
+//DESH compression données
+//===============================================================================
+#include "../lib/encoding.h"
+
+DeltaEncoder encoder;
+uint16_t sensors[10] = {100,100,100,100,100,100,100,100,100,100};
+uint8_t output_index[NB_SENSOR] = {0};
+uint8_t output_diff[NB_SENSOR] = {0};
+uint16_t nb_donnees = 0;
+int valeur_arbitraire = 100;
+//===============================================================================
+
+void print_Lora(int x, int y, const char* text, bool clearFirst)
+{
+    static int nb_lines = 0;
+
+    if (clearFirst) 
+    {
+        display.clear();
+        nb_lines = 0;
+    }
+    if (nb_lines >= 4) 
+    {
+        delay(1000);
+        display.clear();
+        Serial.println("Affichage réinitialisé-------------------------------------");
+        nb_lines = 0;
+    }
+    display.drawString(x, y, text);
+    display.display();
+
+    nb_lines++;
+}
+
 void setup() {
+//===============================================================================
+//DESH compression données
+//===============================================================================
+
+
+
     Serial.begin(115200);
     delay(5000);
 
@@ -58,49 +101,92 @@ void setup() {
     Serial.println("Config RF appliquée!");
 
     // Init CAN
-    canOK = initCAN();
+//    canOK = initCAN();
 
-    // État initial sur l'écran
-    display.clear();
-    display.drawString(0, 0, "Emetteur");
-    display.drawString(0, 15, "LoRa OK");
-    display.drawString(0, 30, canOK ? "CAN OK" : "CAN ERREUR!");
-    display.display();
+    // État initial sur l'écran    
+    print_Lora(0, 0, "Emetteur", true);
+    print_Lora(0, 15, "LoRa OK", false);
+
+
+
+
+
+//==========================================================================================================================================
+//DESH compression données
+//==========================================================================================================================================
+encoder.init(sensors);
+encoder.setName(0, "tire");
+encoder.setName(1, "bat");
+encoder.setName(2, "fuel");
+encoder.setName(3, "speed");
+encoder.setName(4, "temp");
+for (int i = 0; i < NB_SENSOR; i++) {
+    encoder.setThreshold(i, i + 1); // seuil de détection pour chaque capteur
+    encoder.setPriority(i, 0);
+}
+
+
+
+
+
 }
 
 void loop() {
     // 1) Vider les trames CAN en attente (rapide, non-bloquant)
-    if (canOK) {
-        majDonneesCAN();
-    }
+//    if (canOK) {
+//        majDonneesCAN();
+//    }
 
     // 2) Transmettre en LoRa aux 200 ms
     if (millis() - dernierEnvoi >= 200) {
         dernierEnvoi = millis();
+//        DonneesMoto data = lireCapteurs();
+//        int state = radio.transmit((uint8_t*)&data, sizeof(data));
 
-        DonneesMoto data = lireCapteurs();
-        int state = radio.transmit((uint8_t*)&data, sizeof(data));
-
-        if (state == RADIOLIB_ERR_NONE) {
-            compteur++;
-            display.clear();
-            display.drawString(0, 0, "Emetteur");
-            display.drawString(0, 15, canOK ? "CAN OK" : "CAN ERREUR!");
-            display.drawString(0, 30, "Paquet #" + String(compteur));
-            display.display();
-        } else {
-            Serial.print("Erreur envoi: ");
-            Serial.println(state);
-            display.clear();
-            display.drawString(0, 0, "Emetteur");
-            display.drawString(0, 15, "Erreur envoi!");
-            display.display();
-        }
+        // if (state == RADIOLIB_ERR_NONE) {
+        //     compteur++;
+        //     display.clear();
+        //     display.drawString(0, 0, "Emetteur");
+        //     display.drawString(0, 15, canOK ? "CAN OK" : "CAN ERREUR!");
+        //     display.drawString(0, 30, "Paquet #" + String(compteur));
+        //     display.display();
+        // } else {
+            // Serial.print("Erreur envoi: ");
+            // Serial.println(state);
+            // display.clear();
+            // display.drawString(0, 0, "Emetteur");
+            // display.drawString(0, 15, "Erreur envoi!");
+            // display.display();
+       // }
     }
 
     // 3) Diagnostic CAN aux 2 secondes
-    if (canOK && millis() - dernierDiag >= 2000) {
-        dernierDiag = millis();
-        diagCAN();
-    }
+    // if (canOK && millis() - dernierDiag >= 2000) {
+    //     dernierDiag = millis();
+    //     diagCAN();
+    //}
+
+
+//===============================================================================
+//DESH compression données
+//===============================================================================
+
+valeur_arbitraire += 2;
+for (int i = 0; i < NB_SENSOR; i++) {
+    sensors[i] = valeur_arbitraire;
+}
+
+nb_donnees = encoder.sorting(sensors, output_index, output_diff);
+String text = String("Nb capteurs: ") + nb_donnees;
+print_Lora(0, 0, text.c_str(), true);
+Serial.println(String("\nOutput: ") + nb_donnees);
+Serial.println("-------------------------------");
+for (int i = 0; i < nb_donnees; i++) {
+    String line = String(encoder.getConfigByIndex(output_index[i]).name) + ", " + output_diff[i] + ", " + encoder.getConfigByIndex(output_index[i]).last_sent;
+    Serial.println(line);
+    print_Lora(0, ((i+1)%4) * 15, line.c_str(), false);
+}
+
+
+delay(1000);
 }
