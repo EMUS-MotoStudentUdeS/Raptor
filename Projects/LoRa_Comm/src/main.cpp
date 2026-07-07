@@ -21,9 +21,9 @@ unsigned long dernierDiag  = 0;
 #include "../lib/encoding.h"
 
 DeltaEncoder encoder;
-uint16_t sensors[10] = {100,100,100,100,100,100,100,100,100,100};
+int sensors[10] = {100,100,100,100,100,100,100,100,100,100};
 uint8_t output_index[NB_SENSOR] = {0};
-uint8_t output_diff[NB_SENSOR] = {0};
+int output_diff[NB_SENSOR] = {0};
 uint16_t nb_donnees = 0;
 int valeur_arbitraire = 100;
 //===============================================================================
@@ -84,7 +84,8 @@ void setup() {
     int state = radio.begin(915.0);
     if (state == RADIOLIB_ERR_NONE) {
         Serial.println("OK!");
-    } else {
+    } 
+    else {
         Serial.print("Erreur: ");
         Serial.println(state);
         display.clear();

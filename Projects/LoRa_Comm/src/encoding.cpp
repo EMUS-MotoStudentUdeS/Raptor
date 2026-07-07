@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <Arduino.h>
+#include <RadioLib.h>
+
 
 static const SensorConfig DefaultConfigs[NB_SENSOR] = {
     // name      | threshold | priority | last_sent
@@ -24,7 +26,7 @@ DeltaEncoder::DeltaEncoder() : isInitialized(false)
     memcpy(configs, DefaultConfigs, sizeof(configs));
 }
 
-void DeltaEncoder::init(const uint16_t sensors[])
+void DeltaEncoder::init(const int sensors[])
 {
     for (uint8_t i = 0; i < NB_SENSOR; i++)
     {
@@ -40,9 +42,9 @@ void DeltaEncoder::setName(uint8_t sensorNumber, const char sensorName[])
     configs[sensorNumber].name[SENSOR_NAME_MAX_LEN - 1] = '\0';
 }
 
-void DeltaEncoder::setThreshold(uint8_t sensorNumber, uint16_t threshold)
+void DeltaEncoder::setThreshold(uint8_t sensorNumber, int threshold)
 {
-    configs[sensorNumber].threshold = threshold;
+    configs[sensorNumber].threshold = abs(threshold);
 }
 
 void DeltaEncoder::setPriority(uint8_t sensorNumber, int isPriorityValue)
@@ -55,7 +57,7 @@ SensorConfig DeltaEncoder::getConfigByIndex(uint8_t index) const
     return configs[index];
 }
 
-uint16_t DeltaEncoder::sorting(const uint16_t sensors[], uint8_t out_index_capteur[], uint8_t diff_capteur[])
+uint16_t DeltaEncoder::sorting(const int sensors[], uint8_t out_index_capteur[], int diff_capteur[])
 {
     uint16_t outIndex = 0;
 
@@ -66,12 +68,12 @@ uint16_t DeltaEncoder::sorting(const uint16_t sensors[], uint8_t out_index_capte
     
     for (uint8_t i = 0; i < NB_SENSOR; i++)
     {
-        uint16_t old_value = previousValues[i];
-        uint16_t now_value = sensors[i];
+        int old_value = previousValues[i];
+        int now_value = sensors[i];
 
-        uint16_t diff = abs(old_value - now_value);
+        int diff = now_value - old_value;
 
-        if (diff >= configs[i].threshold)
+        if (abs(diff) >= configs[i].threshold)
         {
             configs[i].last_sent = now_value;
             //send_diff();
@@ -84,10 +86,40 @@ uint16_t DeltaEncoder::sorting(const uint16_t sensors[], uint8_t out_index_capte
     }
     return outIndex;
 }
- 
+
+int* DeltaEncoder::data_formater(uint16_t nb_donnees, uint8_t output_index[], int output_diff[])
+{
+    int j = 0;
+    for (int i = 0; i < nb_donnees; i++) 
+    {
+        data_formater_tab[j++] = output_index[i];
+        data_formater_tab[j++] = output_diff[i] & 0xFF;
+    }
+    return data_formater_tab;
+}
+
+
+
+
+int send_data(int data, SX1262& radio)
+{
+    return radio.transmit((uint8_t*)&data, sizeof(data));
+}
+
+
 
 int16_t sensorIndexFromCanId(uint16_t canId)
 {
+/*
+Tous les IDs entre 0x410 et 0x45f (inclusif)
+ID 4 : ecu_sensors
+ID 6 : ecu_battery
+ID 9 : ecu_modes
+ID 81 : drive_speed_temp
+ID 82 : drive_electric_1
+ID 84 : drive_electric_2
+*/
+
     if (canId < CAN_SENSOR_ID_MIN || canId > CAN_SENSOR_ID_MAX)
     {
         return -1;
@@ -96,10 +128,12 @@ int16_t sensorIndexFromCanId(uint16_t canId)
     return (int16_t)(canId - CAN_SENSOR_ID_MIN);
 }
 
-
-void decode_CAN(int CAN_data, int ID, int valeur)
+// à faire avec une vraie trame can CAN_data[0] = ID est juste pour l'idée
+void decode_CAN(int CAN_data[], int ID, int valeur, int sensors[])
 {
+    ID = CAN_data[0];
+    int16_t sensorIndex = sensorIndexFromCanId(ID);
     
-    
+    valeur = CAN_data[1];
+    sensors[sensorIndex] = valeur;
 }
-
