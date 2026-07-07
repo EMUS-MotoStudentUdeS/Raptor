@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <RadioLib.h>
 #include <SSD1306Wire.h>
-//#include "capteurs.h"
+#include "capteurs.h"
 
 // Pins SX1262 du Heltec V4
 SX1262 radio = new Module(8, 14, 12, 13);
