@@ -491,4 +491,4 @@ if __name__ == "__main__":
     print(f"Utilisation du port : {port} (change avec: python app.py COMx)")
 
     threading.Thread(target=lire_serie, args=(port,), daemon=True).start()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5001, debug=False)
