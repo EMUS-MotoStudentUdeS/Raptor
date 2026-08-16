@@ -306,13 +306,12 @@ enum SensorIndex {
     IDX_BMS5_BC6,
 
     // ========================================================================
-    //  SIGNAUX SORTIS PAR LE DASH AIM (RaceStudio3, onglet "CAN Output",
-    //  CAN1 @ 250 kbit/s) - photo recapitulative recue le 2026-08-16, config
-    //  deja transmise au dash cote AiM. Chaque champ Byte X-Y est un mot de
-    //  16 bits ; format big-endian assume (convention standard de sortie CAN
-    //  AiM) - A VALIDER via BUSMASTER/PEAK une fois le dash cable sur le bus,
-    //  meme demarche que pour le reste du decodage (voir extractAimWord16BE
-    //  dans capteurs.cpp).
+    //  SIGNAUX SORTIS PAR LE DASH AIM (RaceStudio3, "Custom Protocol"
+    //  EMUS_ScreenOutput, CAN1 @ 250 kbit/s). Layout bit-exact confirme le
+    //  2026-08-16 par la vue detaillee RaceStudio3 (bits "Low to High",
+    //  bit 0 dans Byte0) - ca confirme le format Intel/little-endian deja
+    //  utilise partout ailleurs dans ce DBC (voir extractAimWord16LE dans
+    //  capteurs.cpp). Chaque champ Byte X-Y est un mot de 16 bits.
     // ========================================================================
 
     // --- 0x500 [20Hz] ---
@@ -331,20 +330,21 @@ enum SensorIndex {
     IDX_AIM_IMU_PITCH_RATE,
     IDX_AIM_IMU_YAW_RATE,
 
-    // --- 0x503 [20Hz] : Byte0-1 encore en "STATIC VALUE 0" cote RaceStudio -
-    //     capteur reserve, garde ici pour ne pas avoir a retoucher l'enum/le
-    //     switch le jour ou l'utilisateur y assigne un vrai canal (renommer
-    //     IDX_AIM_0x503_RESERVED_B01 + la chaine correspondante suffira).
-    IDX_AIM_0x503_RESERVED_B01,
-    IDX_AIM_GPS_SPEED,
+    // --- 0x503 [20Hz] ---
+    IDX_AIM_FRONT_WHEEL_SPEED,   // Veh Fw Speed (Spd1)
+    IDX_AIM_GPS_SPEED,           // Veh GPS Speed (Spd)
 
-    // --- 0x504 [20Hz] : entierement en "STATIC VALUE 0" cote RaceStudio ---
-    IDX_AIM_0x504_RESERVED_B01,
-    IDX_AIM_0x504_RESERVED_B23,
+    // --- 0x504 [20Hz] ---
+    IDX_AIM_TYRE_TEMP_FRONT,     // Drv TyreTemp F (Ch03)
+    IDX_AIM_TYRE_TEMP_REAR,      // Drv TyreTemp R (Ch04)
 
-    // --- 0x505 [20Hz] : entierement en "STATIC VALUE 0" cote RaceStudio ---
-    IDX_AIM_0x505_RESERVED_B01,
-    IDX_AIM_0x505_RESERVED_B23,
+    // --- 0x505 [20Hz] ---
+    IDX_AIM_LIN_SUSP_FRONT,      // Strc LinSusp F (Ch05)
+    IDX_AIM_LIN_SUSP_REAR,       // Strc LinSusp R (Ch06)
+
+    // --- 0x506 [20Hz] ---
+    IDX_AIM_BRAKE_PRES_FRONT,    // Strc BrakePres F (Ch01)
+    IDX_AIM_BRAKE_PRES_REAR,     // Strc BrakePres R (Ch02)
 
     NB_SENSOR                 // Nombre total de capteurs (calcule automatiquement)
 };

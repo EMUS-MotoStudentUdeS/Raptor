@@ -152,11 +152,13 @@ const char* const kSensorNames[NB_SENSOR] = {
 
     "aim_imu_rollrt", "aim_imu_pitchrt", "aim_imu_yawrt",
 
-    "aim_503_res01", "aim_gps_speed",
+    "aim_fw_speed", "aim_gps_speed",
 
-    "aim_504_res01", "aim_504_res23",
+    "aim_tyretmp_f", "aim_tyretmp_r",
 
-    "aim_505_res01", "aim_505_res23",
+    "aim_linsusp_f", "aim_linsusp_r",
+
+    "aim_brakepres_f", "aim_brakepres_r",
 };
 
 // ---------- Decodage generique de signaux DBC (format Intel/@1, little-endian) ----------
@@ -608,13 +610,10 @@ void majDonneesCAN() {
                 dbcRaw[IDX_CHARGER_VOLTAGE_OUT_LOW]         = (int)extractBitsLE(data, 8, 8);
                 break;
 
-            // --- Sortie CAN du dash AiM (RaceStudio3, CAN1 @ 250 kbit/s) ---
-            // Mots 16 bits alignes sur les octets, big-endian (voir
-            // extractAimWord16LE). Les champs *_RESERVED_* correspondent aux
-            // "STATIC VALUE 0" encore non assignes cote RaceStudio : le jour
-            // ou l'utilisateur y met un vrai canal, il suffit de renommer
-            // l'IDX_ concerne (capteurs.h) + sa chaine (kSensorNames
-            // ci-dessus) et d'ajuster cette ligne si besoin.
+            // --- Sortie CAN du dash AiM (RaceStudio3, "Custom Protocol"
+            // EMUS_ScreenOutput, CAN1 @ 250 kbit/s). Mots 16 bits alignes
+            // sur les octets, Intel/little-endian (voir extractAimWord16LE),
+            // layout confirme bit-exact par la vue detaillee RaceStudio3.
             case 0x500:
                 dbcRaw[IDX_AIM_COOL_TEMP_MOTOR_OUT] = extractAimWord16LE(data, 0);
                 dbcRaw[IDX_AIM_COOL_TEMP_MOTOR_IN]  = extractAimWord16LE(data, 2);
@@ -635,18 +634,23 @@ void majDonneesCAN() {
                 break;
 
             case 0x503:
-                dbcRaw[IDX_AIM_0x503_RESERVED_B01] = extractAimWord16LE(data, 0);
-                dbcRaw[IDX_AIM_GPS_SPEED]          = extractAimWord16LE(data, 2);
+                dbcRaw[IDX_AIM_FRONT_WHEEL_SPEED] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_GPS_SPEED]         = extractAimWord16LE(data, 2);
                 break;
 
             case 0x504:
-                dbcRaw[IDX_AIM_0x504_RESERVED_B01] = extractAimWord16LE(data, 0);
-                dbcRaw[IDX_AIM_0x504_RESERVED_B23] = extractAimWord16LE(data, 2);
+                dbcRaw[IDX_AIM_TYRE_TEMP_FRONT] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_TYRE_TEMP_REAR]  = extractAimWord16LE(data, 2);
                 break;
 
             case 0x505:
-                dbcRaw[IDX_AIM_0x505_RESERVED_B01] = extractAimWord16LE(data, 0);
-                dbcRaw[IDX_AIM_0x505_RESERVED_B23] = extractAimWord16LE(data, 2);
+                dbcRaw[IDX_AIM_LIN_SUSP_FRONT] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_LIN_SUSP_REAR]  = extractAimWord16LE(data, 2);
+                break;
+
+            case 0x506:
+                dbcRaw[IDX_AIM_BRAKE_PRES_FRONT] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_BRAKE_PRES_REAR]  = extractAimWord16LE(data, 2);
                 break;
 
             default:
