@@ -97,6 +97,17 @@ void DeltaEncoder::setPriority(uint8_t sensorNumber, int isPriorityValue)
     configs[sensorNumber].priority = (uint8_t)isPriorityValue & 0x03;
 }
 
+void DeltaEncoder::setIgnore(uint8_t sensorNumber, bool ignore)
+{
+    // Protection contre un index invalide.
+    if (sensorNumber >= NB_SENSOR)
+    {
+        return;
+    }
+
+    configs[sensorNumber].ignored = ignore;
+}
+
 SensorConfig DeltaEncoder::getConfigByIndex(uint8_t index) const
 {
     // Protection contre un index invalide.
@@ -175,6 +186,11 @@ uint16_t DeltaEncoder::detecterParPriorite(const int sensors[], uint8_t priority
     for (uint8_t i = 0; i < NB_SENSOR; i++)
     {
         if (configs[i].priority != priorityFiltre)
+        {
+            continue;
+        }
+
+        if (configs[i].ignored)
         {
             continue;
         }
@@ -349,6 +365,69 @@ uint16_t DeltaEncoder::data_formater(uint16_t nb_donnees,
     }
 
     return pos;
+}
+
+
+// ============================================================
+//  serialiserResync / confirmerResync : voir INDEX_RESYNC_ABSOLU
+//  dans encoding.h. Format par capteur : [0xFF][index reel][valeur
+//  absolue en zigzag+varint] - 2 a 7 octets, contre 2 a 6 pour un
+//  delta normal (1 octet d'index de plus, car 0xFF prend la place
+//  du vrai index).
+// ============================================================
+uint16_t DeltaEncoder::serialiserResync(const int sensors[], const uint8_t indices[], uint16_t nbIndices,
+                                        uint8_t out_buf[], uint16_t out_buf_taille,
+                                        uint16_t* out_nb_ecrits)
+{
+    uint16_t pos = 0;
+    uint16_t i;
+
+    for (i = 0; i < nbIndices; i++)
+    {
+        uint8_t idx = indices[i];
+
+        // Capteur ignore : on saute sans consommer de budget d'octets ni
+        // interrompre la boucle (les suivants du tour de role restent testes).
+        if (idx < NB_SENSOR && configs[idx].ignored)
+        {
+            continue;
+        }
+
+        // Garde-fou : 1 octet marqueur + 1 octet index + varint le plus long.
+        if (pos + 2 + VARINT_MAX_OCTETS > out_buf_taille)
+        {
+            break;
+        }
+
+        out_buf[pos++] = INDEX_RESYNC_ABSOLU;
+        out_buf[pos++] = idx;
+
+        uint32_t zz = zigzag_encode(sensors[idx]);   // valeur ABSOLUE, pas un delta
+        pos += varint_encode(zz, &out_buf[pos]);
+    }
+
+    if (out_nb_ecrits != nullptr)
+    {
+        *out_nb_ecrits = i;
+    }
+
+    return pos;
+}
+
+void DeltaEncoder::confirmerResync(const int sensors[], const uint8_t indices[], uint16_t count)
+{
+    for (uint16_t i = 0; i < count; i++)
+    {
+        uint8_t idx = indices[i];
+
+        if (idx >= NB_SENSOR)
+        {
+            continue;
+        }
+
+        previousValues[idx] = sensors[idx];       // valeur ABSOLUE, pas +=
+        configs[idx].last_sent = sensors[idx];
+    }
 }
 
 

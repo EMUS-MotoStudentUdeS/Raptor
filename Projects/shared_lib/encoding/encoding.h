@@ -43,6 +43,17 @@
 #define PRIORITE_HAUTE       0
 #define PRIORITE_SECONDAIRE  1
 
+// --- Marqueur de resync absolu ---
+// Le lien LoRa n'a aucun accuse de reception : si un paquet portant un
+// delta est perdu en l'air, l'emetteur croit l'avoir envoye (previousValues
+// avance) mais le recepteur reste bloque sur l'ancienne valeur pour
+// toujours, jusqu'au prochain vrai changement de CE capteur precis. Pour
+// s'auto-corriger, l'emetteur fait tourner en fond un envoi ABSOLU (pas un
+// delta) de chaque capteur a tour de role : [INDEX_RESYNC_ABSOLU][index
+// reel][valeur absolue en zigzag+varint]. NB_SENSOR reste toujours << 255,
+// donc cette valeur ne collisionne jamais avec un vrai index de capteur.
+#define INDEX_RESYNC_ABSOLU 0xFF
+
 
 // ============================================================================
 //  STRUCTURES ET CLASSIFICATION POUR LA COMPRESSION DELTA
@@ -55,6 +66,7 @@ typedef struct
     int threshold;                  // Seuil de tolérance (écart min pour envoyer)
     uint8_t priority;               // Niveau de priorité de la donnée
     int last_sent;                  // Dernière valeur envoyée (pour calculer le prochain delta)
+    bool ignored;                   // Si vrai : jamais detecte ni resync, donc jamais transmis
 } SensorConfig;
 
 // Classe principale gérant l'algorithme d'encodage par Delta
@@ -112,10 +124,31 @@ public:
                            uint8_t out_buf[], uint16_t out_buf_taille,
                            uint16_t* out_nb_capteurs_ecrits = nullptr);
 
+    // Serialise un resync ABSOLU (pas un delta) pour chaque capteur listé
+    // dans indices[] : [INDEX_RESYNC_ABSOLU][index réel][valeur absolue en
+    // zigzag+varint]. Voir le commentaire d'INDEX_RESYNC_ABSOLU plus haut.
+    // S'arrête proprement si out_buf_taille est atteint (out_nb_ecrits dit
+    // combien ont réellement été écrits, à passer ensuite à confirmerResync()).
+    uint16_t serialiserResync(const int sensors[], const uint8_t indices[], uint16_t nbIndices,
+                              uint8_t out_buf[], uint16_t out_buf_taille,
+                              uint16_t* out_nb_ecrits = nullptr);
+
+    // Avance previousValues[] (à la valeur ABSOLUE, pas un delta) pour les
+    // capteurs listés ici. À appeler après un radio.transmit() réussi, avec
+    // exactement les capteurs réellement inclus (out_nb_ecrits ci-dessus).
+    void confirmerResync(const int sensors[], const uint8_t indices[], uint16_t count);
+
     // --- Fonctions d'accès (Getters / Setters) ---
     void setName(uint8_t sensorNumber, const char sensorName[]);
     void setThreshold(uint8_t sensorNumber, int threshold);
     void setPriority(uint8_t sensorNumber, int isPriority);
+
+    // Exclut (ou reinclut) un capteur de toute transmission : il ne sera
+    // plus jamais retenu par detecterParPriorite() ni serialiserResync()
+    // tant que ignore vaut true. Utile pour couper un capteur non cable/
+    // bruyant sans toucher au reste du pipeline.
+    void setIgnore(uint8_t sensorNumber, bool ignore);
+
     SensorConfig getConfigByIndex(uint8_t index) const;
 
 private:

@@ -115,6 +115,237 @@ enum SensorIndex {
     IDX_CHARGER_VOLTAGE_OUT_HIGH,
     IDX_CHARGER_VOLTAGE_OUT_LOW,
 
+    // ========================================================================
+    //  SIGNAUX ISSUS DU VRAI DBC "BMS2025_1" (1er module BMS physique).
+    //  Confirme le 2026-08-05 par 5 exports DBC coherents (modules 1 a 5,
+    //  IDs 1040-1119) - pas de module "0". Voir decodeBmsModule() dans
+    //  capteurs.cpp.
+    // ========================================================================
+
+    // --- ID 1044 (0x414) BMS2025_1_Tboard ---
+    IDX_BMS_TBOARD,
+
+    // --- ID 1043 (0x413) BMS2025_1_T04a05 ---
+    IDX_BMS_T04,
+    IDX_BMS_T05,
+
+    // --- ID 1042 (0x412) BMS2025_1_T00a03 ---
+    IDX_BMS_T00,
+    IDX_BMS_T01,
+    IDX_BMS_T02,
+    IDX_BMS_T03,
+
+    // --- ID 1041 (0x411) BMS2025_1_V04a05 ---
+    IDX_BMS_V04,
+    IDX_BMS_V05,
+
+    // --- ID 1040 (0x410) BMS2025_1_V00a03 ---
+    IDX_BMS_V00,
+    IDX_BMS_V01,
+    IDX_BMS_V02,
+    IDX_BMS_V03,
+
+    // --- ID 1055 (0x41F) BMS2025_1_Status : HB (16 bits, Intel) + CRC
+    //     (4 bits) + BC1-6 (2 bits chacun), CRC/BC1-6 en Motorola/@0 - voir
+    //     extractBitsBE() dans capteurs.cpp.
+    IDX_BMS_HB,
+    IDX_BMS_CRC,
+    IDX_BMS_BC1,
+    IDX_BMS_BC2,
+    IDX_BMS_BC3,
+    IDX_BMS_BC4,
+    IDX_BMS_BC5,
+    IDX_BMS_BC6,
+
+    // ========================================================================
+    //  SIGNAUX ISSUS DU VRAI DBC "BMS2025_2" (2e module BMS physique).
+    // ========================================================================
+
+    // --- ID 1060 (0x424) BMS2025_2_Tboard ---
+    IDX_BMS2_TBOARD,
+
+    // --- ID 1059 (0x423) BMS2025_2_T04a05 ---
+    IDX_BMS2_T04,
+    IDX_BMS2_T05,
+
+    // --- ID 1058 (0x422) BMS2025_2_T00a03 ---
+    IDX_BMS2_T00,
+    IDX_BMS2_T01,
+    IDX_BMS2_T02,
+    IDX_BMS2_T03,
+
+    // --- ID 1057 (0x421) BMS2025_2_V04a05 ---
+    IDX_BMS2_V04,
+    IDX_BMS2_V05,
+
+    // --- ID 1056 (0x420) BMS2025_2_V00a03 ---
+    IDX_BMS2_V00,
+    IDX_BMS2_V01,
+    IDX_BMS2_V02,
+    IDX_BMS2_V03,
+
+    // --- ID 1071 (0x42F) BMS2025_2_Status : HB + CRC/BC1-6 (voir bloc BMS2025_1) ---
+    IDX_BMS2_HB,
+    IDX_BMS2_CRC,
+    IDX_BMS2_BC1,
+    IDX_BMS2_BC2,
+    IDX_BMS2_BC3,
+    IDX_BMS2_BC4,
+    IDX_BMS2_BC5,
+    IDX_BMS2_BC6,
+
+    // ========================================================================
+    //  SIGNAUX ISSUS DU VRAI DBC "BMS2025_3" (3e module BMS physique).
+    // ========================================================================
+
+    // --- ID 1076 (0x434) BMS2025_3_Tboard ---
+    IDX_BMS3_TBOARD,
+
+    // --- ID 1075 (0x433) BMS2025_3_T04a05 ---
+    IDX_BMS3_T04,
+    IDX_BMS3_T05,
+
+    // --- ID 1074 (0x432) BMS2025_3_T00a03 ---
+    IDX_BMS3_T00,
+    IDX_BMS3_T01,
+    IDX_BMS3_T02,
+    IDX_BMS3_T03,
+
+    // --- ID 1073 (0x431) BMS2025_3_V04a05 ---
+    IDX_BMS3_V04,
+    IDX_BMS3_V05,
+
+    // --- ID 1072 (0x430) BMS2025_3_V00a03 ---
+    IDX_BMS3_V00,
+    IDX_BMS3_V01,
+    IDX_BMS3_V02,
+    IDX_BMS3_V03,
+
+    // --- ID 1087 (0x43F) BMS2025_3_Status : HB + CRC/BC1-6 (voir bloc BMS2025_1) ---
+    IDX_BMS3_HB,
+    IDX_BMS3_CRC,
+    IDX_BMS3_BC1,
+    IDX_BMS3_BC2,
+    IDX_BMS3_BC3,
+    IDX_BMS3_BC4,
+    IDX_BMS3_BC5,
+    IDX_BMS3_BC6,
+
+    // ========================================================================
+    //  SIGNAUX ISSUS DU VRAI DBC "BMS2025_4" (4e module BMS physique).
+    // ========================================================================
+
+    // --- ID 1092 (0x444) BMS2025_4_Tboard ---
+    IDX_BMS4_TBOARD,
+
+    // --- ID 1091 (0x443) BMS2025_4_T04a05 ---
+    IDX_BMS4_T04,
+    IDX_BMS4_T05,
+
+    // --- ID 1090 (0x442) BMS2025_4_T00a03 ---
+    IDX_BMS4_T00,
+    IDX_BMS4_T01,
+    IDX_BMS4_T02,
+    IDX_BMS4_T03,
+
+    // --- ID 1089 (0x441) BMS2025_4_V04a05 ---
+    IDX_BMS4_V04,
+    IDX_BMS4_V05,
+
+    // --- ID 1088 (0x440) BMS2025_4_V00a03 ---
+    IDX_BMS4_V00,
+    IDX_BMS4_V01,
+    IDX_BMS4_V02,
+    IDX_BMS4_V03,
+
+    // --- ID 1103 (0x44F) BMS2025_4_Status : HB + CRC/BC1-6 (voir bloc BMS2025_1) ---
+    IDX_BMS4_HB,
+    IDX_BMS4_CRC,
+    IDX_BMS4_BC1,
+    IDX_BMS4_BC2,
+    IDX_BMS4_BC3,
+    IDX_BMS4_BC4,
+    IDX_BMS4_BC5,
+    IDX_BMS4_BC6,
+
+    // ========================================================================
+    //  SIGNAUX ISSUS DU VRAI DBC "BMS2025_5" (5e module BMS physique).
+    // ========================================================================
+
+    // --- ID 1108 (0x454) BMS2025_5_Tboard ---
+    IDX_BMS5_TBOARD,
+
+    // --- ID 1107 (0x453) BMS2025_5_T04a05 ---
+    IDX_BMS5_T04,
+    IDX_BMS5_T05,
+
+    // --- ID 1106 (0x452) BMS2025_5_T00a03 ---
+    IDX_BMS5_T00,
+    IDX_BMS5_T01,
+    IDX_BMS5_T02,
+    IDX_BMS5_T03,
+
+    // --- ID 1105 (0x451) BMS2025_5_V04a05 ---
+    IDX_BMS5_V04,
+    IDX_BMS5_V05,
+
+    // --- ID 1104 (0x450) BMS2025_5_V00a03 ---
+    IDX_BMS5_V00,
+    IDX_BMS5_V01,
+    IDX_BMS5_V02,
+    IDX_BMS5_V03,
+
+    // --- ID 1119 (0x45F) BMS2025_5_Status : HB + CRC/BC1-6 (voir bloc BMS2025_1) ---
+    IDX_BMS5_HB,
+    IDX_BMS5_CRC,
+    IDX_BMS5_BC1,
+    IDX_BMS5_BC2,
+    IDX_BMS5_BC3,
+    IDX_BMS5_BC4,
+    IDX_BMS5_BC5,
+    IDX_BMS5_BC6,
+
+    // ========================================================================
+    //  SIGNAUX SORTIS PAR LE DASH AIM (RaceStudio3, onglet "CAN Output",
+    //  CAN1 @ 250 kbit/s) - photo recapitulative recue le 2026-08-16, config
+    //  deja transmise au dash cote AiM. Chaque champ Byte X-Y est un mot de
+    //  16 bits ; format big-endian assume (convention standard de sortie CAN
+    //  AiM) - A VALIDER via BUSMASTER/PEAK une fois le dash cable sur le bus,
+    //  meme demarche que pour le reste du decodage (voir extractAimWord16BE
+    //  dans capteurs.cpp).
+    // ========================================================================
+
+    // --- 0x500 [20Hz] ---
+    IDX_AIM_COOL_TEMP_MOTOR_OUT,
+    IDX_AIM_COOL_TEMP_MOTOR_IN,
+    IDX_AIM_TEMP_RAD_AVANT,
+    IDX_AIM_DRV_TRANS_TEMP,
+
+    // --- 0x501 [20Hz] ---
+    IDX_AIM_IMU_LON_ACC,
+    IDX_AIM_IMU_LAT_ACC,
+    IDX_AIM_IMU_VER_ACC,
+
+    // --- 0x502 [20Hz] ---
+    IDX_AIM_IMU_ROLL_RATE,
+    IDX_AIM_IMU_PITCH_RATE,
+    IDX_AIM_IMU_YAW_RATE,
+
+    // --- 0x503 [20Hz] : Byte0-1 encore en "STATIC VALUE 0" cote RaceStudio -
+    //     capteur reserve, garde ici pour ne pas avoir a retoucher l'enum/le
+    //     switch le jour ou l'utilisateur y assigne un vrai canal (renommer
+    //     IDX_AIM_0x503_RESERVED_B01 + la chaine correspondante suffira).
+    IDX_AIM_0x503_RESERVED_B01,
+    IDX_AIM_GPS_SPEED,
+
+    // --- 0x504 [20Hz] : entierement en "STATIC VALUE 0" cote RaceStudio ---
+    IDX_AIM_0x504_RESERVED_B01,
+    IDX_AIM_0x504_RESERVED_B23,
+
+    // --- 0x505 [20Hz] : entierement en "STATIC VALUE 0" cote RaceStudio ---
+    IDX_AIM_0x505_RESERVED_B01,
+    IDX_AIM_0x505_RESERVED_B23,
+
     NB_SENSOR                 // Nombre total de capteurs (calcule automatiquement)
 };
 
@@ -137,6 +368,13 @@ void diagCAN();          // <- la ligne qui te manque
 // et suivants). Les indices legacy (IDX_TIRE..IDX_RESERVE_9, 0-9) ne sont PAS
 // touches par cette fonction : ils restent geres via lireCapteurs()/DonneesMoto.
 void lireValeursDBC(int sensorsOut[NB_SENSOR]);
+
+// Diagnostic : debit reel de la trame CAN 81 (drive_speed_temp), sans log
+// par trame. Voir le commentaire au point de definition dans capteurs.cpp.
+uint32_t getCompteurTrame81();
+void resetCompteurTrame81();
+uint32_t getCompteurTrame82();
+void resetCompteurTrame82();
 
 // Noms lisibles de chaque capteur, dans le meme ordre que l'enum SensorIndex.
 // Source UNIQUE des noms : utilisee par l'emetteur (DeltaEncoder::setName, via

@@ -17,6 +17,8 @@
 #define REG_CNF3     0x28
 #define REG_CANINTF  0x2C
 #define REG_REC      0x1D
+#define REG_TEC      0x1C
+#define REG_EFLG     0x2D
 #define REG_RXB0CTRL 0x60
 #define REG_RXB0SIDH 0x61
 #define REG_RXB0SIDL 0x62
@@ -24,6 +26,16 @@
 #define REG_RXB0EID0 0x64
 #define REG_RXB0DLC  0x65
 #define REG_RXB0D0   0x66
+#define REG_RXB1CTRL 0x70
+#define REG_RXB1SIDH 0x71
+#define REG_RXB1SIDL 0x72
+#define REG_RXB1EID8 0x73
+#define REG_RXB1EID0 0x74
+#define REG_RXB1DLC  0x75
+#define REG_RXB1D0   0x76
+
+#define CANINTF_RX0IF 0x01
+#define CANINTF_RX1IF 0x02
 
 #define SIDL_IDE_BIT 0x08   // RXB0SIDL bit3 : 1 = trame etendue (29 bits), 0 = standard (11 bits)
 
@@ -35,6 +47,33 @@ static DonneesMoto donneesCourantes = {0.0f, 0.0f, 0.0f, 0.0f};
 // Valeurs brutes decodees depuis le DBC (indices IDX_BATTERY_MAX_TEMP et
 // suivants). Les indices legacy (0-9) ne sont jamais ecrits ici.
 static int dbcRaw[NB_SENSOR] = {0};
+
+// Diagnostic : nombre de trames CAN ID 81 (drive_speed_temp - contient
+// speed_ref/speed_measure/motor_temp/inverter_temp) recues depuis le dernier
+// resetCompteurTrame81(). Sert a mesurer le vrai debit source de cette trame
+// precise sans reactiver le log verbeux par trame (qui ralentissait le cycle
+// d'envoi, voir majDonneesCAN()).
+static uint32_t compteurTrame81 = 0;
+
+uint32_t getCompteurTrame81() {
+    return compteurTrame81;
+}
+
+void resetCompteurTrame81() {
+    compteurTrame81 = 0;
+}
+
+// Meme diagnostic que compteurTrame81, pour la trame 82 (drive_electric_1 -
+// contient v_bat/i_bat/iq_ref/i_motor).
+static uint32_t compteurTrame82 = 0;
+
+uint32_t getCompteurTrame82() {
+    return compteurTrame82;
+}
+
+void resetCompteurTrame82() {
+    compteurTrame82 = 0;
+}
 
 // Noms lisibles, un par index de SensorIndex, DANS LE MEME ORDRE que l'enum
 // (voir capteurs.h). Source unique utilisee par l'emetteur ET le recepteur.
@@ -71,6 +110,53 @@ const char* const kSensorNames[NB_SENSOR] = {
 
     "chg_hw_fail", "chg_overtemp", "chg_wrong_vin", "chg_no_batt",
     "chg_comm_err", "chg_iout_hi", "chg_iout_lo", "chg_vout_hi", "chg_vout_lo",
+
+    "bms_tboard",
+    "bms_t04", "bms_t05",
+    "bms_t00", "bms_t01", "bms_t02", "bms_t03",
+    "bms_v04", "bms_v05",
+    "bms_v00", "bms_v01", "bms_v02", "bms_v03",
+    "bms_hb", "bms_crc", "bms_bc1", "bms_bc2", "bms_bc3", "bms_bc4", "bms_bc5", "bms_bc6",
+
+    "bms2_tboard",
+    "bms2_t04", "bms2_t05",
+    "bms2_t00", "bms2_t01", "bms2_t02", "bms2_t03",
+    "bms2_v04", "bms2_v05",
+    "bms2_v00", "bms2_v01", "bms2_v02", "bms2_v03",
+    "bms2_hb", "bms2_crc", "bms2_bc1", "bms2_bc2", "bms2_bc3", "bms2_bc4", "bms2_bc5", "bms2_bc6",
+
+    "bms3_tboard",
+    "bms3_t04", "bms3_t05",
+    "bms3_t00", "bms3_t01", "bms3_t02", "bms3_t03",
+    "bms3_v04", "bms3_v05",
+    "bms3_v00", "bms3_v01", "bms3_v02", "bms3_v03",
+    "bms3_hb", "bms3_crc", "bms3_bc1", "bms3_bc2", "bms3_bc3", "bms3_bc4", "bms3_bc5", "bms3_bc6",
+
+    "bms4_tboard",
+    "bms4_t04", "bms4_t05",
+    "bms4_t00", "bms4_t01", "bms4_t02", "bms4_t03",
+    "bms4_v04", "bms4_v05",
+    "bms4_v00", "bms4_v01", "bms4_v02", "bms4_v03",
+    "bms4_hb", "bms4_crc", "bms4_bc1", "bms4_bc2", "bms4_bc3", "bms4_bc4", "bms4_bc5", "bms4_bc6",
+
+    "bms5_tboard",
+    "bms5_t04", "bms5_t05",
+    "bms5_t00", "bms5_t01", "bms5_t02", "bms5_t03",
+    "bms5_v04", "bms5_v05",
+    "bms5_v00", "bms5_v01", "bms5_v02", "bms5_v03",
+    "bms5_hb", "bms5_crc", "bms5_bc1", "bms5_bc2", "bms5_bc3", "bms5_bc4", "bms5_bc5", "bms5_bc6",
+
+    "aim_cool_tmpout", "aim_cool_tmpin", "aim_temp_radavt", "aim_drv_transtp",
+
+    "aim_imu_lonacc", "aim_imu_latacc", "aim_imu_veracc",
+
+    "aim_imu_rollrt", "aim_imu_pitchrt", "aim_imu_yawrt",
+
+    "aim_503_res01", "aim_gps_speed",
+
+    "aim_504_res01", "aim_504_res23",
+
+    "aim_505_res01", "aim_505_res23",
 };
 
 // ---------- Decodage generique de signaux DBC (format Intel/@1, little-endian) ----------
@@ -94,6 +180,128 @@ static int32_t signExtend(uint64_t raw, uint8_t length) {
     if (length >= 32) return (int32_t)raw;
     uint32_t signBit = 1UL << (length - 1);
     return (int32_t)(((uint32_t)raw ^ signBit) - signBit);
+}
+
+// Extraction Motorola/big-endian (@0), pour les signaux CRC/BC1-6 de la
+// trame Status BMS - tout le reste de ce DBC est en Intel/@1 (extractBitsLE).
+// Conversion bit motorola -> bit standard (LSB=0, comme extractBitsLE) :
+// le bit ecrit dans le DBC designe le bit-en-octet compte MSB=0..LSB=7,
+// contrairement a Intel ou le bit-en-octet est compte LSB=0..MSB=7. On
+// convertit l'un vers l'autre (stdBit = octet*8 + (7 - bitEnOctetMotorola)),
+// puis on extrait normalement. Verifie par recoupement interne sur les 7
+// signaux de BMS2025_N_Status (CRC 19|4 + BC1..6 a 2 bits chacun) : cette
+// formule est la seule des deux orientations testees qui les fait tenir
+// exactement cote a cote sur 16 bits sans aucun chevauchement ni trou.
+static uint64_t extractBitsBE(const uint8_t data[8], uint8_t startBitMotorola, uint8_t length) {
+    uint8_t octet = startBitMotorola / 8;
+    uint8_t bitEnOctet = startBitMotorola % 8;
+    uint8_t stdBit = octet * 8 + (7 - bitEnOctet);
+    return extractBitsLE(data, stdBit, length);
+}
+
+// ---------- Decodage des trames de sortie CAN du dash AiM (0x500-0x505) ----------
+//
+// Comme le reste des signaux DBC decodes ici, la sortie CAN custom du dash
+// AiM (RaceStudio3 -> onglet "CAN Output") est en Intel/little-endian
+// (octet de poids faible en premier) - confirme par l'utilisateur : meme
+// convention que le reste du bus. Un mot de 16 bits ALIGNE sur les octets
+// par canal. byteOffset designe le premier des 2 octets (ex: 0 pour
+// Byte0-1, 2 pour Byte2-3...).
+static int16_t extractAimWord16LE(const uint8_t data[8], uint8_t byteOffset) {
+    return (int16_t)(((uint16_t)data[byteOffset + 1] << 8) | data[byteOffset]);
+}
+
+// ---------- Decodage generique des modules BMS2025_N ----------
+//
+// Chaque module BMS (BMS2025_1, _2, _3, _4, _5 - 5 modules physiques reels,
+// confirmes le 2026-08-05 par 5 exports DBC coherents entre eux) emet les 6
+// memes trames avec le meme layout de bits, seul l'ID CAN de base change :
+// base = 1040 + 16*k (k = 0 pour le module 1, 1 pour le module 2, etc.). Au
+// sein d'un module, les 6 trames sont a base+0 (V00a03), base+1 (V04a05),
+// base+2 (T00a03), base+3 (T04a05), base+4 (Tboard) et base+15 (Status).
+//
+// kBmsModules associe explicitement chaque module a ses IDX_BMS*_* (definis
+// dans capteurs.h) : pas de calcul d'offset sur l'enum, pour rester correct
+// meme si l'ordre des IDX_BMS*_* venait a changer.
+struct BmsModuleIndices {
+    int tboard, t04, t05, t00, t01, t02, t03, v04, v05, v00, v01, v02, v03,
+        hb, crc, bc1, bc2, bc3, bc4, bc5, bc6;
+};
+
+static const BmsModuleIndices kBmsModules[] = {
+    { IDX_BMS_TBOARD, IDX_BMS_T04, IDX_BMS_T05, IDX_BMS_T00, IDX_BMS_T01, IDX_BMS_T02, IDX_BMS_T03,
+      IDX_BMS_V04, IDX_BMS_V05, IDX_BMS_V00, IDX_BMS_V01, IDX_BMS_V02, IDX_BMS_V03,
+      IDX_BMS_HB, IDX_BMS_CRC, IDX_BMS_BC1, IDX_BMS_BC2, IDX_BMS_BC3, IDX_BMS_BC4, IDX_BMS_BC5, IDX_BMS_BC6 },
+    { IDX_BMS2_TBOARD, IDX_BMS2_T04, IDX_BMS2_T05, IDX_BMS2_T00, IDX_BMS2_T01, IDX_BMS2_T02, IDX_BMS2_T03,
+      IDX_BMS2_V04, IDX_BMS2_V05, IDX_BMS2_V00, IDX_BMS2_V01, IDX_BMS2_V02, IDX_BMS2_V03,
+      IDX_BMS2_HB, IDX_BMS2_CRC, IDX_BMS2_BC1, IDX_BMS2_BC2, IDX_BMS2_BC3, IDX_BMS2_BC4, IDX_BMS2_BC5, IDX_BMS2_BC6 },
+    { IDX_BMS3_TBOARD, IDX_BMS3_T04, IDX_BMS3_T05, IDX_BMS3_T00, IDX_BMS3_T01, IDX_BMS3_T02, IDX_BMS3_T03,
+      IDX_BMS3_V04, IDX_BMS3_V05, IDX_BMS3_V00, IDX_BMS3_V01, IDX_BMS3_V02, IDX_BMS3_V03,
+      IDX_BMS3_HB, IDX_BMS3_CRC, IDX_BMS3_BC1, IDX_BMS3_BC2, IDX_BMS3_BC3, IDX_BMS3_BC4, IDX_BMS3_BC5, IDX_BMS3_BC6 },
+    { IDX_BMS4_TBOARD, IDX_BMS4_T04, IDX_BMS4_T05, IDX_BMS4_T00, IDX_BMS4_T01, IDX_BMS4_T02, IDX_BMS4_T03,
+      IDX_BMS4_V04, IDX_BMS4_V05, IDX_BMS4_V00, IDX_BMS4_V01, IDX_BMS4_V02, IDX_BMS4_V03,
+      IDX_BMS4_HB, IDX_BMS4_CRC, IDX_BMS4_BC1, IDX_BMS4_BC2, IDX_BMS4_BC3, IDX_BMS4_BC4, IDX_BMS4_BC5, IDX_BMS4_BC6 },
+    { IDX_BMS5_TBOARD, IDX_BMS5_T04, IDX_BMS5_T05, IDX_BMS5_T00, IDX_BMS5_T01, IDX_BMS5_T02, IDX_BMS5_T03,
+      IDX_BMS5_V04, IDX_BMS5_V05, IDX_BMS5_V00, IDX_BMS5_V01, IDX_BMS5_V02, IDX_BMS5_V03,
+      IDX_BMS5_HB, IDX_BMS5_CRC, IDX_BMS5_BC1, IDX_BMS5_BC2, IDX_BMS5_BC3, IDX_BMS5_BC4, IDX_BMS5_BC5, IDX_BMS5_BC6 },
+};
+static const uint8_t kNbBmsModules = sizeof(kBmsModules) / sizeof(kBmsModules[0]);
+
+// Decode 'id' s'il appartient a un module BMS2025_N connu ; renvoie false
+// sinon (id hors plage BMS, ou trame non geree du module -> laisse le switch
+// principal de majDonneesCAN() traiter les autres ID).
+static bool decodeBmsModule(uint32_t id, const uint8_t data[8]) {
+    if (id < 1040) return false;
+    uint32_t rel = id - 1040;
+    uint32_t moduleIdx = rel / 16;
+    uint32_t offset = rel % 16;
+    if (moduleIdx >= kNbBmsModules) return false;
+
+    const BmsModuleIndices& m = kBmsModules[moduleIdx];
+    switch (offset) {
+        case 0:   // V00a03
+            dbcRaw[m.v00] = (int)extractBitsLE(data, 0, 16);
+            dbcRaw[m.v01] = (int)extractBitsLE(data, 16, 16);
+            dbcRaw[m.v02] = (int)extractBitsLE(data, 32, 16);
+            dbcRaw[m.v03] = (int)extractBitsLE(data, 48, 16);
+            return true;
+
+        case 1:   // V04a05
+            dbcRaw[m.v04] = (int)extractBitsLE(data, 0, 16);
+            dbcRaw[m.v05] = (int)extractBitsLE(data, 16, 16);
+            return true;
+
+        case 2:   // T00a03
+            dbcRaw[m.t00] = (int)extractBitsLE(data, 0, 16);
+            dbcRaw[m.t01] = (int)extractBitsLE(data, 16, 16);
+            dbcRaw[m.t02] = (int)extractBitsLE(data, 32, 16);
+            dbcRaw[m.t03] = (int)extractBitsLE(data, 48, 16);
+            return true;
+
+        case 3:   // T04a05
+            dbcRaw[m.t04] = (int)extractBitsLE(data, 0, 16);
+            dbcRaw[m.t05] = (int)extractBitsLE(data, 16, 16);
+            return true;
+
+        case 4:   // Tboard
+            dbcRaw[m.tboard] = (int)extractBitsLE(data, 0, 16);
+            return true;
+
+        case 15:   // Status - HB en Intel/@1 (0|16), CRC/BC1-6 en Motorola/@0
+                   // (19|4 et 2 bits chacun) : voir extractBitsBE().
+            dbcRaw[m.hb]  = (int)extractBitsLE(data, 0, 16);
+            dbcRaw[m.crc] = (int)extractBitsBE(data, 19, 4);
+            dbcRaw[m.bc1] = (int)extractBitsBE(data, 31, 2);
+            dbcRaw[m.bc2] = (int)extractBitsBE(data, 29, 2);
+            dbcRaw[m.bc3] = (int)extractBitsBE(data, 27, 2);
+            dbcRaw[m.bc4] = (int)extractBitsBE(data, 25, 2);
+            dbcRaw[m.bc5] = (int)extractBitsBE(data, 23, 2);
+            dbcRaw[m.bc6] = (int)extractBitsBE(data, 21, 2);
+            return true;
+
+        default:
+            return false;
+    }
 }
 
 // ---------- SPI bas niveau ----------
@@ -145,8 +353,10 @@ bool initCAN() {
     }
     Serial.println("ETAPE A OK : SPI fonctionne");
 
-    // Bit timing 500 kbps @ crystal 8 MHz
-    spi_write(REG_CNF1, 0x01); // <- 0x00 devient 0x01 (BRP=1)
+    // Bit timing 250 kbps @ crystal 8 MHz (BRP=1). Confirme le 2026-08-05 :
+    // le bus BMS tourne bien a 250k aussi (comme le bus vehicule), pas 500k -
+    // REC=128/EFLG=0xB a 500k, REC=0/EFLG=0x00 a 250k.
+    spi_write(REG_CNF1, 0x01);
     spi_write(REG_CNF2, 0x90);
     spi_write(REG_CNF3, 0x02);
 
@@ -176,17 +386,42 @@ bool initCAN() {
 // ---------- Réception ----------
 
 bool lireTrameCAN(uint32_t* id, uint8_t* data, uint8_t* len) {
-    if (!(spi_read(REG_CANINTF) & 0x01)) return false;
+    // Le MCP2515 a DEUX buffers de reception (RXB0/RXB1), mais ce code n'a
+    // longtemps lu que RXB0 - meme avec le rollover RXB0->RXB1 active
+    // (RXB0CTRL), les trames tombees dans RXB1 n'etaient jamais relues, ce
+    // qui finissait par declencher un vrai overflow (EFLG RX0OVR) pendant
+    // les rafales (plusieurs modules BMS qui parlent presque en meme temps).
+    // On verifie RXB0 d'abord, puis RXB1, un seul par appel (comme avant) -
+    // mais les DEUX sont maintenant vraiment vides a chaque passage de
+    // majDonneesCAN() (qui boucle sur lireTrameCAN() jusqu'a epuisement).
+    uint8_t intf = spi_read(REG_CANINTF);
 
-    uint8_t sidh = spi_read(REG_RXB0SIDH);
-    uint8_t sidl = spi_read(REG_RXB0SIDL);
+    uint8_t regSIDH, regSIDL, regEID8, regEID0, regDLC, regD0;
+    uint8_t flagAEffacer;
+
+    if (intf & CANINTF_RX0IF) {
+        regSIDH = REG_RXB0SIDH; regSIDL = REG_RXB0SIDL;
+        regEID8 = REG_RXB0EID8; regEID0 = REG_RXB0EID0;
+        regDLC  = REG_RXB0DLC;  regD0   = REG_RXB0D0;
+        flagAEffacer = CANINTF_RX0IF;
+    } else if (intf & CANINTF_RX1IF) {
+        regSIDH = REG_RXB1SIDH; regSIDL = REG_RXB1SIDL;
+        regEID8 = REG_RXB1EID8; regEID0 = REG_RXB1EID0;
+        regDLC  = REG_RXB1DLC;  regD0   = REG_RXB1D0;
+        flagAEffacer = CANINTF_RX1IF;
+    } else {
+        return false;
+    }
+
+    uint8_t sidh = spi_read(regSIDH);
+    uint8_t sidl = spi_read(regSIDL);
     uint32_t sid = ((uint32_t)sidh << 3) | (sidl >> 5);   // 11 bits (standard OU partie haute d'une trame etendue)
 
     if (sidl & SIDL_IDE_BIT) {
         // Trame etendue (29 bits) : SID (11 bits) + EID (18 bits, reparti sur
         // SIDL[1:0] + EID8 + EID0).
-        uint8_t eid8 = spi_read(REG_RXB0EID8);
-        uint8_t eid0 = spi_read(REG_RXB0EID0);
+        uint8_t eid8 = spi_read(regEID8);
+        uint8_t eid0 = spi_read(regEID0);
         uint32_t eid = ((uint32_t)(sidl & 0x03) << 16) | ((uint32_t)eid8 << 8) | eid0;
         *id = (sid << 18) | eid;
     } else {
@@ -194,11 +429,14 @@ bool lireTrameCAN(uint32_t* id, uint8_t* data, uint8_t* len) {
         *id = sid;
     }
 
-    *len = spi_read(REG_RXB0DLC) & 0x0F;
+    *len = spi_read(regDLC) & 0x0F;
     if (*len > 8) *len = 8;
-    for (uint8_t i = 0; i < *len; i++) data[i] = spi_read(REG_RXB0D0 + i);
+    for (uint8_t i = 0; i < *len; i++) data[i] = spi_read(regD0 + i);
 
-    spi_write(REG_CANINTF, 0x00);   // libérer le buffer
+    // On ne libere QUE le buffer qu'on vient de lire (pas l'autre flag) :
+    // l'effacer aveuglement comme avant (0x00) aurait pu perdre la
+    // notification d'une trame deja arrivee dans l'autre buffer.
+    spi_write(REG_CANINTF, intf & ~flagAEffacer);
     return true;
 }
 
@@ -210,18 +448,18 @@ void majDonneesCAN() {
     uint8_t len;
 
     while (lireTrameCAN(&id, data, &len)) {
-        // Debug : afficher chaque trame reçue
-        Serial.print("TRAME ID=0x");
-        Serial.print(id, HEX);
-        Serial.print(" len=");
-        Serial.print(len);
-        Serial.print(" data:");
-        for (uint8_t i = 0; i < len; i++) {
-            Serial.print(" ");
-            if (data[i] < 0x10) Serial.print("0");
-            Serial.print(data[i], HEX);
+        // Log par trame retire : avec le trafic CAN reel de la moto (5 modules
+        // BMS + drivetrain), le Serial.print() par trame ralentissait le cycle
+        // d'envoi de ~200ms a ~370ms (mesure : 2.7 paquets/s au lieu de 5/s
+        // vises). Voir diagCAN() pour un diagnostic global (REC/TEC/EFLG) qui
+        // ne coute pas ce prix.
+
+        // Modules BMS2025_N (N=1..5 actuellement) : layout de bits identique
+        // pour tous, seul l'ID de base change -> decodage generique plutot
+        // qu'un bloc switch/case duplique par module (voir decodeBmsModule).
+        if (decodeBmsModule(id, data)) {
+            continue;
         }
-        Serial.println();
 
         // ====================================================
         //  Mapping ID -> DonneesMoto (test BusMaster)
@@ -287,6 +525,14 @@ void majDonneesCAN() {
                 dbcRaw[IDX_I_MOTOR]  = signExtend(extractBitsLE(data, 32, 16), 16);
                 dbcRaw[IDX_I_BAT]    = signExtend(extractBitsLE(data, 48, 16), 16);
                 dbcRaw[IDX_V_BAT]    = signExtend(extractBitsLE(data, 0, 16), 16);
+                compteurTrame82++;
+                // Diagnostic ponctuel : horodatage exact de chaque arrivee,
+                // pour voir si le pattern est vraiment en rafale ou juste un
+                // artefact du comptage par seconde. Peu couteux car cette
+                // trame precise n'arrive que ~1x/s (contrairement au log par
+                // trame qu'on a enleve de majDonneesCAN()).
+                Serial.print("CAN82 t=");
+                Serial.println(millis());
                 break;
 
             case 81:   // drive_speed_temp
@@ -295,6 +541,7 @@ void majDonneesCAN() {
                 dbcRaw[IDX_INVERTER_TEMP]   = (int)extractBitsLE(data, 8, 8);
                 dbcRaw[IDX_SPEED_REF]       = signExtend(extractBitsLE(data, 16, 16), 16);
                 dbcRaw[IDX_SPEED_MEASURE]   = signExtend(extractBitsLE(data, 32, 16), 16);
+                compteurTrame81++;
                 break;
 
             case 3:   // ecu_fault_list (tous des drapeaux 1 bit -> bit brut, pas de sign-extend)
@@ -361,6 +608,47 @@ void majDonneesCAN() {
                 dbcRaw[IDX_CHARGER_VOLTAGE_OUT_LOW]         = (int)extractBitsLE(data, 8, 8);
                 break;
 
+            // --- Sortie CAN du dash AiM (RaceStudio3, CAN1 @ 250 kbit/s) ---
+            // Mots 16 bits alignes sur les octets, big-endian (voir
+            // extractAimWord16LE). Les champs *_RESERVED_* correspondent aux
+            // "STATIC VALUE 0" encore non assignes cote RaceStudio : le jour
+            // ou l'utilisateur y met un vrai canal, il suffit de renommer
+            // l'IDX_ concerne (capteurs.h) + sa chaine (kSensorNames
+            // ci-dessus) et d'ajuster cette ligne si besoin.
+            case 0x500:
+                dbcRaw[IDX_AIM_COOL_TEMP_MOTOR_OUT] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_COOL_TEMP_MOTOR_IN]  = extractAimWord16LE(data, 2);
+                dbcRaw[IDX_AIM_TEMP_RAD_AVANT]      = extractAimWord16LE(data, 4);
+                dbcRaw[IDX_AIM_DRV_TRANS_TEMP]      = extractAimWord16LE(data, 6);
+                break;
+
+            case 0x501:
+                dbcRaw[IDX_AIM_IMU_LON_ACC] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_IMU_LAT_ACC] = extractAimWord16LE(data, 2);
+                dbcRaw[IDX_AIM_IMU_VER_ACC] = extractAimWord16LE(data, 4);
+                break;
+
+            case 0x502:
+                dbcRaw[IDX_AIM_IMU_ROLL_RATE]  = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_IMU_PITCH_RATE] = extractAimWord16LE(data, 2);
+                dbcRaw[IDX_AIM_IMU_YAW_RATE]   = extractAimWord16LE(data, 4);
+                break;
+
+            case 0x503:
+                dbcRaw[IDX_AIM_0x503_RESERVED_B01] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_GPS_SPEED]          = extractAimWord16LE(data, 2);
+                break;
+
+            case 0x504:
+                dbcRaw[IDX_AIM_0x504_RESERVED_B01] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_0x504_RESERVED_B23] = extractAimWord16LE(data, 2);
+                break;
+
+            case 0x505:
+                dbcRaw[IDX_AIM_0x505_RESERVED_B01] = extractAimWord16LE(data, 0);
+                dbcRaw[IDX_AIM_0x505_RESERVED_B23] = extractAimWord16LE(data, 2);
+                break;
+
             default:
                 break;
         }
@@ -381,10 +669,17 @@ DonneesMoto lireCapteurs() {
 
 // ---------- Diagnostic ----------
 
-// Affiche le compteur d'erreurs de réception.
-// REC=0 constant -> aucune activité vue sur le bus
-// REC qui grimpe -> le bus parle mais mauvais bitrate
+// Affiche les compteurs d'erreurs de réception/émission + EFLG.
+// REC/TEC=0 et EFLG=0 en continu, sans aucune trame reçue -> bus vraiment
+// silencieux (rien a lire : alimentation/câblage/nœuds inactifs, pas un
+// probleme de bitrate).
+// REC/TEC qui grimpent ou EFLG != 0 (bits d'erreur : bit-stuff, CRC, form
+// error...) -> le bus parle mais le bitrate ne correspond pas (ou bruit).
 void diagCAN() {
     Serial.print("[diag] REC=");
-    Serial.println(spi_read(REG_REC));
+    Serial.print(spi_read(REG_REC));
+    Serial.print(" TEC=");
+    Serial.print(spi_read(REG_TEC));
+    Serial.print(" EFLG=0x");
+    Serial.println(spi_read(REG_EFLG), HEX);
 }
